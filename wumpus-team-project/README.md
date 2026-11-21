@@ -38,10 +38,13 @@
 | 2-3 | `logic.py` | `find_pure_symbol` 순수 기호 | 가산점 | ⬜ |
 | 2-4 | `logic.py` | `find_unit_clause` 단위 절 | 가산점 | ⬜ |
 | 3 | `logic.py` | `dpll_entails` (귀류법) | 필수 | ⬜ |
-| 4 | `planner.py` | `astar` A* 탐색 | 필수 | ⬜ |
-| 5 | `agent.py` | `tell_percept` 지각 → TELL | 필수 | ⬜ |
-| 6 | `agent.py` | `update_knowledge` 안전 칸 ASK | 필수 | ⬜ |
-| 7 | `agent.py` | `choose_plan` ② 안전 칸 이동(필수) · ③ 사격(선택) | 필수/선택 | ⬜ |
+| 4 | `planner.py` | `astar` A* 탐색 | 필수 | ✅ |
+| 5 | `agent.py` | `tell_percept` 지각 → TELL | 필수 | ✅ |
+| 6 | `agent.py` | `update_knowledge` 안전 칸 ASK | 필수 | ✅ |
+| 7 | `agent.py` | `choose_plan` ② 안전 칸 이동(필수) · ③ 사격(선택) | 필수/선택 | ✅ ②③ 모두 |
+
+TODO 4~7 설계·실험 노트: [`docs/TODO4-7_탐색_에이전트.md`](docs/TODO4-7_탐색_에이전트.md) · 추가 테스트 `python test_search_agent.py` · 실험 `python tools/exp_search_agent.py --plot`
+(에이전트 전체 테스트는 logic.py TODO 1~3이 merge되어야 실행됨)
 
 의존 관계: **1 → 3**, **2-1 → 2-2 → 3**, **4**는 독립, **5~7**은 1~4가 끝나야 전체 테스트 가능.
 → 1·2·4를 병렬로 먼저 진행하고, 5~7은 그동안 설계부터 시작하는 것을 권장합니다.
@@ -71,6 +74,7 @@ python main.py --random 1000 --agent random                   # 기준선
 | 휴리스틱 효과 | 2-3·2-4 구현 전/후 | DPLL 호출 수 |
 | 정책 비교 | `--policy safe` / `--policy risk` | 성공률, 사망률, 평균 점수 |
 | 기준선 | `--agent random` | 성공률, 평균 점수 |
+| 사격 효과 · A* vs 균일 비용 | `python tools/exp_search_agent.py --plot` | 성공률, 평균 점수, 확장 노드 수 |
 
 ## 📦 제출
 
