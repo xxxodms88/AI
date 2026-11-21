@@ -43,7 +43,7 @@
 | 6 | `agent.py` | `update_knowledge` 안전 칸 ASK | 필수 | ✅ |
 | 7 | `agent.py` | `choose_plan` ② 안전 칸 이동(필수) · ③ 사격(선택) | 필수/선택 | ✅ ②③ 모두 |
 
-TODO 4~7 설계·실험 노트: [`docs/TODO4-7_탐색_에이전트.md`](docs/TODO4-7_탐색_에이전트.md) · 추가 테스트 `python test_search_agent.py` · 실험 `python tools/exp_search_agent.py --plot`
+TODO 4~7 설계·실험 노트: [`docs/TODO4-7_search_agent.md`](docs/TODO4-7_search_agent.md) · 추가 테스트 `python test_search_agent.py` · 실험 `python tools/exp_search_agent.py --plot`
 (에이전트 전체 테스트는 logic.py TODO 1~3이 merge되어야 실행됨)
 
 의존 관계: **1 → 3**, **2-1 → 2-2 → 3**, **4**는 독립, **5~7**은 1~4가 끝나야 전체 테스트 가능.
