@@ -172,7 +172,22 @@ def tt_entails(kb_clauses, alpha, stats=None):
                TT-CHECK-ALL(KB, α, rest, model ∪ {P=false})
     힌트: KB가 참 ⇔ 모든 절에 대해 _clause_true(c, model)
     """
-    raise NotImplementedError("TODO 1: tt_entails")
+    symbols = sorted({var(l) for c in kb_clauses for l in c} | alpha.symbols())
+    if stats is not None:
+        stats["symbols_max"] = max(stats["symbols_max"], len(symbols))
+
+    def check_all(i, model):
+        if i == len(symbols):                       # 모든 기호에 값이 정해짐
+            if stats is not None:
+                stats["models"] += 1
+            if all(_clause_true(c, model) for c in kb_clauses):
+                return alpha.pl_true(model)         # KB가 참인 모델에서는 α도 참이어야 함
+            return True                             # KB가 거짓인 모델은 무관
+        p = symbols[i]
+        return (check_all(i + 1, {**model, p: True}) and
+                check_all(i + 1, {**model, p: False}))
+
+    return check_all(0, {})
 
 
 # =============================================================== 2) DPLL
@@ -199,7 +214,16 @@ def clause_status(c, model):
     예) c = {'P12', 'P21'},  model = {'P12': False}  →  ("undecided", ['P21'])
         c = {'P12', 'P21'},  model = {'P12': False, 'P21': False}  →  ("false", [])
     힌트: 각 리터럴에 _lit_value(l, model)을 적용해 True / None 을 모은다. (약 8줄)"""
-    raise NotImplementedError("TODO 2-1: clause_status")
+    unassigned = []
+    for l in c:
+        v = _lit_value(l, model)
+        if v is True:
+            return ("true", [])
+        if v is None:
+            unassigned.append(l)
+    if unassigned:
+        return ("undecided", unassigned)
+    return ("false", [])
 
 
 def find_pure_symbol(symbols, clauses, model):
@@ -209,7 +233,17 @@ def find_pure_symbol(symbols, clauses, model):
       양(P)으로만 나오면 값 True, 음(~P)으로만 나오면 값 False.  없으면 (None, None)
     예) clauses = [{'A','~B'}, {'~B','C'}, {'~C','A'}], model = {}  →  ('A', True)  (B도 가능: ('B', False))
     힌트: 기호별로 나온 부호의 집합 {True, False}을 dict로 모은다. (약 10줄)"""
-    return None, None          # ← 구현하지 않으면 휴리스틱 없이 동작
+    signs = {}                                      # 기호 → 나타난 부호의 집합
+    for c in clauses:
+        status, lits = clause_status(c, model)
+        if status != "undecided":
+            continue                                # 이미 참인 절은 무시
+        for l in lits:
+            signs.setdefault(var(l), set()).add(not l.startswith("~"))
+    for p in symbols:
+        if p in signs and len(signs[p]) == 1:
+            return p, next(iter(signs[p]))
+    return None, None
 
 
 def find_unit_clause(clauses, model):
@@ -219,7 +253,12 @@ def find_unit_clause(clauses, model):
     예) clauses = [{'A','B'}], model = {'A': False}  →  ('B', True)
         clauses = [{'~C'}],    model = {}            →  ('C', False)
     힌트: clause_status를 그대로 이용하면 5줄 정도면 된다."""
-    return None, None          # ← 구현하지 않으면 휴리스틱 없이 동작
+    for c in clauses:
+        status, lits = clause_status(c, model)
+        if status == "undecided" and len(lits) == 1:
+            l = lits[0]
+            return var(l), not l.startswith("~")
+    return None, None
 
 
 def dpll(clauses, symbols, model, stats=None, use_pure=True, use_unit=True):
@@ -232,7 +271,11 @@ def dpll(clauses, symbols, model, stats=None, use_pure=True, use_unit=True):
     # ① [TODO 2-2] 조기 종료
     #    clause_status로 모든 절의 상태를 구해서
     #    "false"인 절이 하나라도 있으면 return False,  모든 절이 "true"이면 return True
-    raise NotImplementedError("TODO 2-2: dpll ① 조기 종료")
+    statuses = [clause_status(c, model)[0] for c in clauses]
+    if "false" in statuses:
+        return False
+    if all(s == "true" for s in statuses):
+        return True
 
     # ② 순수 기호 휴리스틱 (제공 — find_pure_symbol을 구현하면 자동으로 사용됨)
     if use_pure:
@@ -249,6 +292,9 @@ def dpll(clauses, symbols, model, stats=None, use_pure=True, use_unit=True):
     #    아직 model에 없는 첫 기호 p를 골라
     #    p=True 로 재귀 호출한 결과 or p=False 로 재귀 호출한 결과 를 반환
     #    (재귀 호출에도 stats, use_pure, use_unit 을 그대로 넘길 것)
+    p = next(s for s in symbols if s not in model)
+    return (dpll(clauses, symbols, {**model, p: True}, stats, use_pure, use_unit) or
+            dpll(clauses, symbols, {**model, p: False}, stats, use_pure, use_unit))
 
 
 def dpll_satisfiable(clauses, stats=None, use_pure=True, use_unit=True):
@@ -264,7 +310,7 @@ def dpll_entails(kb_clauses, alpha, stats=None, use_pure=True, use_unit=True):
     """[TODO 3] KB ⊨ α  ⇔  KB ∧ ¬α 가 충족 불가능 (귀류법)
     힌트: to_cnf(Not(alpha)) 로 ¬α의 절을 얻어 KB 절과 합친 뒤
           dpll_satisfiable(..., stats, use_pure, use_unit) 의 결과를 뒤집는다. (1줄)"""
-    raise NotImplementedError("TODO 3: dpll_entails")
+    return not dpll_satisfiable(set(kb_clauses) | to_cnf(Not(alpha)), stats, use_pure, use_unit)
 
 
 # ====================================================================== KB
