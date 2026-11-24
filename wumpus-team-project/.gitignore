@@ -8,3 +8,4 @@ venv/
 results/*.png
 Wumpus_Team*.zip
 results/*.gif
+result_path.png
