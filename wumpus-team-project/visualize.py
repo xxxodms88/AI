@@ -8,6 +8,13 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 from matplotlib.patches import Rectangle, Circle, RegularPolygon
 
+import glob as _glob
+for _p in ["C:/Windows/Fonts/malgun.ttf", "/System/Library/Fonts/Supplemental/AppleGothic.ttf",
+           *_glob.glob("/usr/share/fonts/**/Nanum*.ttf", recursive=True)]:   # Colab: apt-get install fonts-nanum
+    try:
+        font_manager.fontManager.addfont(_p)       # 캐시에 없어도 직접 등록 → 런타임 재시작 불필요
+    except (FileNotFoundError, OSError, RuntimeError):
+        pass
 for _f in ("Malgun Gothic", "AppleGothic", "NanumGothic", "Noto Sans CJK KR"):
     if any(_f == f.name for f in font_manager.fontManager.ttflist):
         plt.rcParams["font.family"] = _f
