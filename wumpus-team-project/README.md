@@ -75,6 +75,7 @@ python main.py --random 1000 --agent random                   # 기준선
 | 정책 비교 | `--policy safe` / `--policy risk` | 성공률, 사망률, 평균 점수 |
 | 기준선 | `--agent random` | 성공률, 평균 점수 |
 | 사격 효과 · A* vs 균일 비용 | `python tools/exp_search_agent.py --plot` | 성공률, 평균 점수, 확장 노드 수 |
+| 심화: 기호 수별 TT vs DPLL · 빈손 탈출 원인 | `python tools/exp_analysis.py all` | 시간 vs 기호 수, 휴리스틱 효과, 실패 분류 → [`docs/ANALYSIS.md`](docs/ANALYSIS.md) |
 | 발표용 시각화 | `python viz_plus.py --world worlds/world_shoot.txt` · `--experiments 1000` | 탐험 GIF, 단계별 패널, 실험 대시보드 (`results/`) |
 
 ## 📦 제출
