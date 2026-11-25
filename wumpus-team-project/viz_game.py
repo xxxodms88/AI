@@ -2,7 +2,7 @@
 viz_game.py — 탐험 과정 GIF (게임 화면 스타일)
 
   python viz_game.py --world worlds/world_shoot.txt          # → results/game_world_shoot.gif
-  python viz_game.py --world worlds/world_fig7_2.txt --fps 4
+  python viz_game.py --world worlds/world_fig7_2.txt --fps 1.5   # 더 느리게
   python viz_game.py --seed 7 --png 31                      # 31번째 턴만 PNG로 (슬라이드용 정지 화면)
 
 화면 구성
@@ -58,7 +58,7 @@ def T(ax, x, y, s, kind="round", size=10, color=CREAM, **kw):
 
 
 # ------------------------------------------------------------------ 지도
-def draw_map(ax, world, f, final_outcome=None):
+def draw_map(ax, world, f):
     ax.clear(); ax.set_facecolor(BG)
     n = world.size
     for x in range(1, n + 1):
@@ -112,17 +112,6 @@ def draw_map(ax, world, f, final_outcome=None):
     ang = {0: 0, 1: 90, 2: 180, 3: 270}[d]
     ax.add_patch(Wedge((axp, ayp), .21, ang + 32, ang - 32 + 360, facecolor=AMBER, edgecolor=BG, lw=2, zorder=8))
     ax.add_patch(Circle((axp - .05 * dy + .02 * dx, ayp + .05 * dx + .02 * dy), .025, color=BG, zorder=9))
-    # 마지막 장면 배너
-    if final_outcome:
-        head, sub, col = {"win": ("CLEAR!", "금을 들고 탈출", AMBER), "climb": ("ESCAPE", "빈손으로 안전하게 탈출", CREAM),
-                          "pit": ("GAME OVER", "구덩이에 빠짐", RED), "wumpus": ("GAME OVER", "웜퍼스에게 잡힘", RED),
-                          "timeout": ("TIME OVER", "시간 초과", DIM)}[final_outcome]
-        cx, cy = (n + 1) / 2, (n + 1) / 2
-        ax.add_patch(Rectangle((.5, .5), n, n, facecolor=BG, alpha=.55, zorder=10))     # 지도 전체를 살짝 어둡게
-        ax.add_patch(FancyBboxPatch((cx - 1.45, cy - .62), 2.9, 1.24, boxstyle="round,pad=0,rounding_size=.12",
-                                    facecolor=PANEL, edgecolor=col, lw=2.5, zorder=11))
-        T(ax, cx, cy + .22, head, "mono", 26, col, ha="center", va="center", zorder=12)
-        T(ax, cx, cy - .3, f"{sub}   ·   {f['score']:+d}점", "round_r", 11, CREAM, ha="center", va="center", zorder=12)
     ax.set_xlim(.5, n + .5); ax.set_ylim(.5, n + .5); ax.set_aspect("equal"); ax.axis("off")
 
 
@@ -137,33 +126,28 @@ def draw_hud(ax, f, total, score):
     ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=.04",
                                 facecolor=PANEL, edgecolor="none", transform=ax.transAxes))
     L = .07
-    # 턴 + 진행 막대
-    T(ax, L, .9, "TURN", "mono", 9, DIM, transform=ax.transAxes)
-    T(ax, .93, .9, f"{f['t']:>2} / {total}", "mono", 12, CREAM, ha="right", transform=ax.transAxes)
-    pill(ax, L, .855, .86, .022, FOG)
-    pill(ax, L, .855, max(.022, .86 * f["t"] / total), .022, AMBER)
-    # 지각 램프
-    T(ax, L, .76, "지금 느낀 것", "round_r", 9, DIM, transform=ax.transAxes)
+    # 지각 램프 — 에이전트가 이번 턴에 서 있는 칸에서 감지한 신호 5가지
+    T(ax, L, .9, "지각 (이번 칸에서 감지한 신호)", "round_r", 9, DIM, transform=ax.transAxes)
     w, gap = .155, .022
     for i, (kr, key, col) in enumerate(LAMPS):
         on = getattr(f["percept"], key)
         x = L + i * (w + gap)
-        pill(ax, x, .665, w, .07, col if on else FOG)
-        T(ax, x + w / 2, .7, kr, "round", 8.5, BG if on else "#5c6270", ha="center", va="center",
+        pill(ax, x, .78, w, .075, col if on else FOG)
+        T(ax, x + w / 2, .8175, kr, "round", 8.5, BG if on else "#5c6270", ha="center", va="center",
           transform=ax.transAxes)
     # 동작
-    T(ax, L, .57, "ACTION", "mono", 9, DIM, transform=ax.transAxes)
-    T(ax, L, .475, f["action"].upper(), "mono", 22, RED if f["action"] == "Shoot" else AMBER,
+    T(ax, L, .67, "ACTION", "mono", 9, DIM, transform=ax.transAxes)
+    T(ax, L, .575, f["action"].upper(), "mono", 22, RED if f["action"] == "Shoot" else AMBER,
       va="center", transform=ax.transAxes)
-    T(ax, L, .405, ACTION_KR[f["action"]], "round_r", 10, CREAM, va="center", transform=ax.transAxes)
+    T(ax, L, .505, ACTION_KR[f["action"]], "round_r", 10, CREAM, va="center", transform=ax.transAxes)
     # 점수
-    T(ax, L, .31, "SCORE", "mono", 9, DIM, transform=ax.transAxes)
-    T(ax, L, .225, f"{score:+d}" if score else "0", "mono", 22, GREEN if score >= 0 else RED,
+    T(ax, L, .4, "SCORE", "mono", 9, DIM, transform=ax.transAxes)
+    T(ax, L, .315, f"{score:+d}" if score else "0", "mono", 22, GREEN if score >= 0 else RED,
       va="center", transform=ax.transAxes)
     # 작은 정보 줄
     (x0, y0), _ = f["after"]                       # 이번 동작을 한 뒤의 위치 (지도 위 에이전트와 같음)
     info = f"위치 [{x0},{y0}]   KB {f['kb']}절   안전 칸 {len(f['safe'])}"
-    T(ax, L, .12, info, "round_r", 9, DIM, transform=ax.transAxes)
+    T(ax, L, .17, info, "round_r", 9, DIM, transform=ax.transAxes)
     # 색 설명 (한 줄, 상태판 안)
     keys = [(FLOOR, "방문"), (SAFE, "안전"), (FOG, "모름"), (PIT_C, "구덩이"), (WUMP_C, "웜퍼스")]
     for i, (col, lab) in enumerate(keys):
@@ -181,24 +165,35 @@ def _mark_grab(frames):
         f["_grabbed"] = g
 
 
-def _figure(name, sub):
+def draw_turnbar(ax, t, total):
+    """화면 맨 위: 턴 진행 막대"""
+    ax.clear(); ax.axis("off"); ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    T(ax, 0, .5, "TURN", "mono", 11, DIM, va="center", transform=ax.transAxes)
+    x0, x1 = .065, .9
+    ax.plot([x0, x1], [.5, .5], color=FOG, lw=10, solid_capstyle="round", transform=ax.transAxes)
+    ax.plot([x0, x0 + (x1 - x0) * t / total], [.5, .5], color=AMBER, lw=10, solid_capstyle="round",
+            transform=ax.transAxes)
+    T(ax, 1, .5, f"{t:>2} / {total}", "mono", 14, CREAM, ha="right", va="center", transform=ax.transAxes)
+
+
+def _figure():
     fig = plt.figure(figsize=(9.6, 5.4), dpi=100, facecolor=BG)
-    T(fig, .035, .925, "WUMPUS WORLD", "mono", 15, AMBER, transform=fig.transFigure)
-    T(fig, .215, .926, f"{name}   ·   {sub}", "round_r", 10.5, DIM, transform=fig.transFigure)
-    gax = fig.add_axes([.03, .05, .47, .835]); hax = fig.add_axes([.53, .05, .44, .835])
-    return fig, gax, hax
+    tax = fig.add_axes([.035, .895, .93, .07])
+    gax = fig.add_axes([.03, .04, .47, .835]); hax = fig.add_axes([.53, .04, .44, .835])
+    return fig, tax, gax, hax
 
 
-def save_game_gif(world, frames, path, name="", sub="", fps=3, hold=2.5):
+def save_game_gif(world, frames, path, name="", sub="", fps=2, hold=2.5):
+    """fps 2 = 한 턴에 0.5초. 마지막 장면은 hold초 동안 멈춰 있다."""
     _mark_grab(frames)
-    total, outcome = len(frames), world.outcome
-    seq = list(range(total)) + [-1] * int(fps * hold)          # -1 = 결과 배너 장면
-    fig, gax, hax = _figure(name, sub)
+    total = len(frames)
+    seq = list(range(total)) + [total - 1] * int(fps * hold)
+    fig, tax, gax, hax = _figure()
 
     def update(k):
-        i = seq[k]
-        f = frames[i]
-        draw_map(gax, world, f, outcome if i == -1 else None)
+        f = frames[seq[k]]
+        draw_turnbar(tax, f["t"], total)
+        draw_map(gax, world, f)
         draw_hud(hax, f, total, f["score"])
     FuncAnimation(fig, update, frames=len(seq)).save(path, writer=PillowWriter(fps=fps))
     plt.close(fig)
@@ -208,8 +203,9 @@ def save_game_gif(world, frames, path, name="", sub="", fps=3, hold=2.5):
 def save_game_png(world, frames, path, turn, name="", sub=""):
     _mark_grab(frames)
     f = frames[min(max(turn, 1), len(frames)) - 1]
-    fig, gax, hax = _figure(name, sub)
-    draw_map(gax, world, f, world.outcome if turn >= len(frames) else None)
+    fig, tax, gax, hax = _figure()
+    draw_turnbar(tax, f["t"], len(frames))
+    draw_map(gax, world, f)
     draw_hud(hax, f, len(frames), f["score"])
     fig.savefig(path, dpi=200, facecolor=BG); plt.close(fig)
     return path
@@ -220,7 +216,7 @@ def main():
     ap.add_argument("--world"); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--engine", default="dpll", choices=["dpll", "tt"])
     ap.add_argument("--policy", default="safe", choices=["safe", "risk"])
-    ap.add_argument("--fps", type=int, default=3)
+    ap.add_argument("--fps", type=float, default=2, help="초당 턴 수 (작을수록 느림)")
     ap.add_argument("--png", type=int, help="이 턴의 정지 화면만 PNG로 저장")
     a = ap.parse_args()
     setup_korean_font(verbose=False)

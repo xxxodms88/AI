@@ -325,7 +325,7 @@ def main():
     ap.add_argument("--seed", type=int, help="무작위 세계 시드")
     ap.add_argument("--engine", default="dpll", choices=["dpll", "tt"])
     ap.add_argument("--policy", default="safe", choices=["safe", "risk"])
-    ap.add_argument("--fps", type=int, default=3)
+    ap.add_argument("--fps", type=float, default=2)
     ap.add_argument("--experiments", type=int, default=0, help="실험 대시보드용 무작위 세계 수")
     args = ap.parse_args()
     setup_korean_font()
