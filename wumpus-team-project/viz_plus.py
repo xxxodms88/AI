@@ -276,32 +276,34 @@ def experiments(n=300):
 
 def save_charts(res, eng, outdir, n):
     """실험 결과를 3장으로 저장 (chart_style: 탐험 GIF와 같은 어두운 스타일)"""
-    from chart_style import (new_chart, finish_ticks, centered_title, save, mono,
-                             BG, GRID, CREAM, AMBER, RED, GREEN, BLUE)
+    from chart_style import (new_chart, finish_ticks, centered_title, centered_legend, save, mono,
+                             BG, GRID, CREAM, AMBER, RED, SLATE, BRICK)
     paths = []
-    # (1) 결과 비율 — 100% 누적 가로 막대, 제목 색 = 범례
+    # (1) 결과 비율 — 100% 누적 가로 막대. 성공만 강조색, 빈손 탈출은 중립색
     fig, ax = new_chart((10, 5.2))
     names = [r["name"] for r in res][::-1]
     left = [0] * len(names)
-    for key, col in [("win", GREEN), ("climb", BLUE), ("death", RED), ("timeout", AMBER)]:
+    kinds = [("win", AMBER, "성공", BG), ("climb", SLATE, "빈손 탈출", CREAM), ("death", BRICK, "사망", CREAM),
+             ("timeout", "#6b5b95", "시간 초과", CREAM)]
+    kinds = [k for k in kinds if any(r[k[0]] for r in res)]
+    for key, col, _, ink in kinds:
         vals = [r[key] for r in res][::-1]
-        if not any(vals):
-            continue
-        ax.barh(names, vals, left=left, color=col, height=.62)
+        ax.barh(names, vals, left=left, color=col, height=.5)
         for k, (l, v) in enumerate(zip(left, vals)):
             if v >= 6:
-                ax.text(l + v / 2, k, f"{v:.0f}%", ha="center", va="center", fontproperties=mono(11, True), color=BG)
+                ax.text(l + v / 2, k, f"{v:.0f}%", ha="center", va="center", fontproperties=mono(11, True), color=ink)
         left = [l + v for l, v in zip(left, vals)]
     ax.set_xlim(0, 100); ax.set_xticks([])
     finish_ticks(ax, 11)
-    fig.subplots_adjust(left=.15, right=.96, bottom=.08, top=.84)
-    centered_title(fig, ax, [("성공", GREEN), (" / ", CREAM), ("빈손 탈출", BLUE), (" / ", CREAM), ("사망", RED)])
+    fig.subplots_adjust(left=.15, right=.96, bottom=.06, top=.8)
+    centered_title(fig, ax, [("RESULT", CREAM)])
+    centered_legend(fig, ax, [(col, lab) for _, col, lab, _ in kinds])
     paths.append(save(fig, outdir / "exp_outcome.png"))
 
-    # (2) 평균 점수 — 양수 초록, 음수 빨강
+    # (2) 평균 점수 — 양수 주황, 음수 빨강 (결과 비율 그래프와 같은 색)
     fig, ax = new_chart((10, 5.2))
     sc = [r["score"] for r in res]
-    cols = [GREEN if v >= 0 else RED for v in sc]
+    cols = [AMBER if v >= 0 else BRICK for v in sc]
     ax.bar(range(len(sc)), sc, color=cols, width=.6)
     ax.axhline(0, color=CREAM, lw=1)
     span = max(sc) - min(sc)

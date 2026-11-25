@@ -15,6 +15,7 @@ from matplotlib.font_manager import FontProperties
 
 BG, GRID, ZONE = "#14161b", "#2b2f39", "#1f222a"
 CREAM, AMBER, RED, GREEN, BLUE = "#f3eee3", "#ffb000", "#ff5d73", "#7ee081", "#5ab4ff"
+SLATE, BRICK = "#3a4150", "#c2414f"          # 차분한 중립색, 눌러 준 빨강 (결과 비율·점수용)
 
 _NANUM = "/usr/share/fonts/truetype/nanum/"
 
@@ -53,6 +54,29 @@ def centered_title(fig, ax, parts, y=.92, size=22):
     for t, w in zip(texts, widths):
         t.set_x(x)
         x += w
+
+
+def centered_legend(fig, ax, items, y=.855, size=10.5):
+    """[(색, 이름), ...] 을 제목 아래 한 줄로, 그래프 영역 가운데에 놓는다."""
+    from matplotlib.patches import Rectangle
+    w_in, h_in = fig.get_size_inches()
+    sq_h = .022; sq_w = sq_h * h_in / w_in                  # 화면에서 정사각형이 되도록
+    texts = [fig.text(0, y, lab, fontproperties=mono(size), color=CREAM, va="center") for _, lab in items]
+    fig.canvas.draw()
+    inv = fig.transFigure.inverted()
+    widths = []
+    for t in texts:
+        (x0, _), (x1, _) = inv.transform(t.get_window_extent().get_points())
+        widths.append(x1 - x0)
+    gap_in, gap_out = sq_w * .7, sq_w * 2.2
+    total = sum(sq_w + gap_in + w for w in widths) + gap_out * (len(items) - 1)
+    box = ax.get_position()
+    x = (box.x0 + box.x1) / 2 - total / 2
+    for (col, _), t, w in zip(items, texts, widths):
+        fig.patches.append(Rectangle((x, y - sq_h / 2), sq_w, sq_h, transform=fig.transFigure,
+                                     facecolor=col, edgecolor="#5c6270" if col == SLATE else col, lw=.8))
+        t.set_x(x + sq_w + gap_in)
+        x += sq_w + gap_in + w + gap_out
 
 
 def save(fig, path, tight=False):
