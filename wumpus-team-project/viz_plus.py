@@ -345,7 +345,11 @@ def main():
     outcome = {"win": "성공", "climb": "빈손 탈출", "pit": "구덩이 사망", "wumpus": "웜퍼스 사망",
                "timeout": "시간 초과"}[world.outcome]
     title = f"{name} · {args.engine.upper()}/{args.policy} · {outcome} (점수 {world.score}, {world.steps}동작)"
-    print("저장:", save_animation(world, frames, OUT / f"anim_{name}.gif", args.fps, title))
+    from viz_game import save_game_gif                       # GIF는 게임 화면 스타일 (viz_game.py)
+    gif_frames = record_episode(WumpusWorld.from_file(args.world) if args.world else WumpusWorld.random(seed=args.seed or 0),
+                                HybridWumpusAgent(method=args.engine, policy=args.policy))
+    print("저장:", save_game_gif(world, gif_frames, OUT / f"anim_{name}.gif", name,
+                                f"{args.engine.upper()} · {args.policy.upper()}", args.fps))
     print("저장:", save_step_panels(world, frames, OUT / f"steps_{name}.png", title))
 
 
