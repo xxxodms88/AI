@@ -168,6 +168,16 @@ def t_shoot_world():
 
 
 @needs_logic
+def t_team_world():
+    """팀 설계 세계: 조합 추론으로 웜퍼스 [3,1]·구덩이 [1,3] 확정, 사격해야만 성공"""
+    w, a, r = _run("worlds/world_team.txt")
+    assert r["outcome"] == "win" and r["score"] == 969, (r["outcome"], r["score"])
+    assert a.wumpus_dead and {(1, 3), (2, 3), (4, 2)} <= a.known_pit, a.known_pit
+    assert _run("worlds/world_team.txt", shoot=False)[2]["outcome"] == "climb"
+    assert _run("worlds/world_team.txt", policy="risk", shoot=False)[2]["outcome"] == "pit"
+
+
+@needs_logic
 def t_random_sound_and_rational():
     """무작위 300개: safe 정책은 절대 죽지 않고, 금을 찾으면 반드시 들고 나오며, 시간 초과가 없다."""
     for i in range(300):
@@ -183,7 +193,7 @@ if __name__ == "__main__":
              ("A* 최적성 (무작위 500)", t_astar_optimal_random), ("PLAN-SHOT", t_plan_shot),
              ("TELL 지각 → 절", t_tell_percept), ("TELL 사격 결과", t_tell_after_scream),
              ("ASK 교재 7.3절 추론", t_update_knowledge_fig72), ("그림 7.2 (DPLL·TT)", t_fig72_both_engines),
-             ("사격 세계", t_shoot_world), ("무작위 300 (건전성·합리성)", t_random_sound_and_rational)]
+             ("사격 세계", t_shoot_world), ("팀 설계 세계", t_team_world), ("무작위 300 (건전성·합리성)", t_random_sound_and_rational)]
     ok = skip = 0
     for name, f in tests:
         try:
