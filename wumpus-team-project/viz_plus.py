@@ -8,7 +8,7 @@ viz_plus.py — 발표·보고서용 시각화 확장 (visualize.py는 그대로
   python viz_plus.py --world worlds/world_fig7_2.txt          # → results/anim_world_fig7_2.gif, results/steps_world_fig7_2.png
   python viz_plus.py --world worlds/world_shoot.txt --fps 4
   python viz_plus.py --seed 7                                 # 무작위 세계
-  python viz_plus.py --experiments 300                        # → results/experiments.png  (1000이면 1~2분)
+  python viz_plus.py --experiments 300                        # → results/exp_outcome.png, exp_score.png, exp_ask.png  (1000이면 약 30초)
 
 Colab:  한글이 □로 깨지면 먼저  !apt-get -qq install fonts-nanum  (설치 후 런타임 재시작 없이 바로 적용됨)
 ※ agent.py · wumpus_env.py 는 수정하지 않습니다. 에이전트를 감싸서(record_episode) 매 턴 상태를 복사해 둡니다.
@@ -65,7 +65,6 @@ def setup_korean_font(verbose=True):
 # ------------------------------------------------------------------ 색
 C_VISITED, C_SAFE, C_PIT, C_WUMP, C_UNK = "#CFE8E4", "#E7F5D9", "#F6D3D3", "#F9E1C4", "#FFFFFF"
 INK, QUIET, LINE = "#1F2147", "#6B7080", "#2A9D8F"
-OUTCOME_COLOR = {"win": "#2A9D8F", "climb": "#B8C4CC", "death": "#D1495B", "timeout": "#F2C14E"}
 
 
 # ------------------------------------------------------------------ 기록
@@ -250,10 +249,10 @@ def _run(world, agent):
 
 def experiments(n=300):
     """정책·사격·엔진별로 n개 무작위 세계를 돌려 요약값을 반환"""
-    configs = [("무작위 에이전트", lambda i: RandomAgent(seed=i)),
-               ("safe · 사격 X", lambda i: HybridWumpusAgent(policy="safe", shoot=False)),
-               ("safe · 사격 O", lambda i: HybridWumpusAgent(policy="safe")),
-               ("risk · 사격 O", lambda i: HybridWumpusAgent(policy="risk"))]
+    configs = [("RANDOM", lambda i: RandomAgent(seed=i)),
+               ("SAFE", lambda i: HybridWumpusAgent(policy="safe", shoot=False)),
+               ("SAFE+SHOOT", lambda i: HybridWumpusAgent(policy="safe")),
+               ("RISK+SHOOT", lambda i: HybridWumpusAgent(policy="risk"))]
     res = []
     for name, make in configs:
         try:
@@ -267,7 +266,7 @@ def experiments(n=300):
         print(f"  {name:12s} 성공 {res[-1]['win']:5.1f}%  사망 {res[-1]['death']:5.1f}%  평균 점수 {res[-1]['score']:7.1f}")
     eng = []
     for name, kw in [("DPLL", dict(method="dpll")), ("TT", dict(method="tt")),
-                     ("DPLL\n가지치기 X", dict(method="dpll", prune=False))]:
+                     ("DPLL\nPRUNE OFF", dict(method="dpll", prune=False))]:
         rows = [_run(WumpusWorld.random(seed=i), HybridWumpusAgent(**kw)) for i in range(min(n, 200))]
         ms = 1000 * sum(r["ask_time"] for r in rows) / max(1, sum(r["asks"] for r in rows))
         eng.append(dict(name=name, ms=ms))
@@ -275,47 +274,67 @@ def experiments(n=300):
     return res, eng
 
 
-def save_dashboard(res, eng, path, n):
-    fig, axes = plt.subplots(1, 3, figsize=(13, 3.9), dpi=150, gridspec_kw=dict(width_ratios=[1.5, 1, 1]))
-    # (1) 결과 비율 — 100% 누적 가로 막대
-    ax = axes[0]
+def save_charts(res, eng, outdir, n):
+    """실험 결과를 3장으로 저장 (chart_style: 탐험 GIF와 같은 어두운 스타일)"""
+    from chart_style import (new_chart, finish_ticks, centered_title, centered_legend, save, mono,
+                             BG, GRID, CREAM, AMBER, RED, SLATE, BRICK)
+    paths = []
+    # (1) 결과 비율 — 100% 누적 가로 막대. 성공만 강조색, 빈손 탈출은 중립색
+    fig, ax = new_chart((10, 5.2))
     names = [r["name"] for r in res][::-1]
     left = [0] * len(names)
-    for key, label in [("win", "성공"), ("climb", "빈손 탈출"), ("death", "사망"), ("timeout", "시간 초과")]:
-        if not any(r[key] for r in res):
-            continue                                     # 0%인 항목은 범례에서 뺀다
+    kinds = [("win", AMBER, "성공", BG), ("climb", SLATE, "빈손 탈출", CREAM), ("death", BRICK, "사망", CREAM),
+             ("timeout", "#6b5b95", "시간 초과", CREAM)]
+    kinds = [k for k in kinds if any(r[k[0]] for r in res)]
+    for key, col, _, ink in kinds:
         vals = [r[key] for r in res][::-1]
-        ax.barh(names, vals, left=left, color=OUTCOME_COLOR[key], label=label, height=.6)
-        for i, (l, v) in enumerate(zip(left, vals)):
-            if v >= 7:
-                ax.text(l + v / 2, i, f"{v:.0f}%", ha="center", va="center", fontsize=8,
-                        color="white" if key in ("win", "death") else INK)
+        ax.barh(names, vals, left=left, color=col, height=.5)
+        for k, (l, v) in enumerate(zip(left, vals)):
+            if v >= 6:
+                ax.text(l + v / 2, k, f"{v:.0f}%", ha="center", va="center", fontproperties=mono(11, True), color=ink)
         left = [l + v for l, v in zip(left, vals)]
-    ax.set_xlim(0, 100); ax.set_xlabel("세계 비율 (%)")
-    ax.set_title(f"결과 비율 (무작위 세계 {n}개)", fontsize=10, loc="left")
-    ax.legend(ncol=4, fontsize=7.5, frameon=False, loc="upper left", bbox_to_anchor=(0, -.15))
-    # (2) 평균 점수
-    ax = axes[1]
+    ax.set_xlim(0, 100); ax.set_xticks([])
+    finish_ticks(ax, 11)
+    fig.subplots_adjust(left=.15, right=.96, bottom=.06, top=.8)
+    centered_title(fig, ax, [("RESULT", CREAM)])
+    centered_legend(fig, ax, [(col, lab) for _, col, lab, _ in kinds])
+    paths.append(save(fig, outdir / "exp_outcome.png"))
+
+    # (2) 평균 점수 — 양수 주황, 음수 빨강 (결과 비율 그래프와 같은 색)
+    fig, ax = new_chart((10, 5.2))
     sc = [r["score"] for r in res]
-    best = max(range(len(sc)), key=lambda i: sc[i])
-    ax.bar(range(len(sc)), sc, color=["#2A9D8F" if i == best else "#B8C4CC" for i in range(len(sc))])
-    ax.axhline(0, color=INK, lw=.8)
-    for i, v in enumerate(sc):
-        ax.text(i, v + 15 if v >= 0 else 15, f"{v:.0f}", ha="center", va="bottom", fontsize=8)
-    ax.set_xticks(range(len(sc)), [r["name"].replace(" · ", "\n") for r in res], fontsize=7.5)
-    ax.set_title("평균 점수 (높을수록 좋음)", fontsize=10, loc="left")
-    # (3) ASK 시간
-    ax = axes[2]
+    cols = [AMBER if v >= 0 else BRICK for v in sc]
+    ax.bar(range(len(sc)), sc, color=cols, width=.6)
+    ax.axhline(0, color=CREAM, lw=1)
+    span = max(sc) - min(sc)
+    for k, (v, c) in enumerate(zip(sc, cols)):
+        ax.text(k, v + (.03 * span if v >= 0 else -.03 * span), f"{v:+.0f}", ha="center",
+                va="bottom" if v >= 0 else "top", fontproperties=mono(12, True), color=c)
+    ax.set_xticks(range(len(sc)), [r["name"] for r in res])
+    ax.set_ylim(min(sc) - .15 * span, max(sc) + .15 * span)
+    ax.grid(axis="y", color=GRID, lw=1); ax.set_axisbelow(True)
+    finish_ticks(ax, 11)
+    fig.subplots_adjust(left=.1, right=.96, bottom=.1, top=.84)
+    centered_title(fig, ax, [("AVG SCORE", CREAM)])
+    paths.append(save(fig, outdir / "exp_score.png"))
+
+    # (3) ASK 1회 평균 시간
+    fig, ax = new_chart((10, 5.2))
     ms = [e["ms"] for e in eng]
-    ax.bar(range(len(ms)), ms, color=["#2A9D8F", "#B8C4CC", "#B8C4CC"][:len(ms)])
-    for i, v in enumerate(ms):
-        ax.text(i, v, f"{v:.3f} ms", ha="center", va="bottom", fontsize=8)
-    ax.set_xticks(range(len(ms)), [e["name"] for e in eng], fontsize=8)
-    ax.set_title("ASK 1회 평균 시간", fontsize=10, loc="left")
-    for a in axes:
-        for s in ("top", "right"): a.spines[s].set_visible(False)
-    fig.tight_layout(); fig.savefig(path, bbox_inches="tight"); plt.close(fig)
-    return path
+    cols = [AMBER, RED, AMBER][:len(ms)]
+    bars = ax.bar(range(len(ms)), ms, color=cols, width=.55)
+    bars[-1].set_facecolor(BG); bars[-1].set_edgecolor(AMBER)     # 가지치기 OFF = 빗금 테두리
+    bars[-1].set_hatch("//"); bars[-1].set_linewidth(2)
+    for k, v in enumerate(ms):
+        ax.text(k, v + max(ms) * .02, f"{v:.3f} ms", ha="center", va="bottom", fontproperties=mono(12, True),
+                color=cols[k])
+    ax.set_xticks(range(len(ms)), [e["name"] for e in eng])
+    ax.set_ylim(0, max(ms) * 1.18); ax.set_yticks([])
+    finish_ticks(ax, 11)
+    fig.subplots_adjust(left=.06, right=.96, bottom=.13, top=.84)
+    centered_title(fig, ax, [("ASK TIME", CREAM)])
+    paths.append(save(fig, outdir / "exp_ask.png"))
+    return paths
 
 
 # ------------------------------------------------------------------ CLI
@@ -325,7 +344,7 @@ def main():
     ap.add_argument("--seed", type=int, help="무작위 세계 시드")
     ap.add_argument("--engine", default="dpll", choices=["dpll", "tt"])
     ap.add_argument("--policy", default="safe", choices=["safe", "risk"])
-    ap.add_argument("--fps", type=int, default=3)
+    ap.add_argument("--fps", type=float, default=2)
     ap.add_argument("--experiments", type=int, default=0, help="실험 대시보드용 무작위 세계 수")
     args = ap.parse_args()
     setup_korean_font()
@@ -333,7 +352,8 @@ def main():
 
     if args.experiments:
         res, eng = experiments(args.experiments)
-        print("저장:", save_dashboard(res, eng, OUT / "experiments.png", args.experiments))
+        for p in save_charts(res, eng, OUT, args.experiments):
+            print("저장:", p)
         return
     if args.world:
         world, name = WumpusWorld.from_file(args.world), Path(args.world).stem
@@ -345,7 +365,11 @@ def main():
     outcome = {"win": "성공", "climb": "빈손 탈출", "pit": "구덩이 사망", "wumpus": "웜퍼스 사망",
                "timeout": "시간 초과"}[world.outcome]
     title = f"{name} · {args.engine.upper()}/{args.policy} · {outcome} (점수 {world.score}, {world.steps}동작)"
-    print("저장:", save_animation(world, frames, OUT / f"anim_{name}.gif", args.fps, title))
+    from viz_game import save_game_gif                       # GIF는 게임 화면 스타일 (viz_game.py)
+    gif_frames = record_episode(WumpusWorld.from_file(args.world) if args.world else WumpusWorld.random(seed=args.seed or 0),
+                                HybridWumpusAgent(method=args.engine, policy=args.policy))
+    print("저장:", save_game_gif(world, gif_frames, OUT / f"anim_{name}.gif", name,
+                                f"{args.engine.upper()} · {args.policy.upper()}", args.fps))
     print("저장:", save_step_panels(world, frames, OUT / f"steps_{name}.png", title))
 
 
